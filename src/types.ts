@@ -7,13 +7,27 @@ export interface LabelItem {
   quantity: number
 }
 
+export type LabelOrientation = 'auto' | 'vertical' | 'horizontal'
+
 export interface LabelSettings {
   widthMm: number
   heightMm: number
   format: string
   /** Print the encoded value under the bars */
   displayValue: boolean
+  /**
+   * Barcode direction. 'vertical' rotates the barcode 90° so it runs the
+   * length of the label; 'auto' does this only on portrait (taller-than-wide)
+   * stock. Currently applied for PPLA output.
+   */
+  orientation: LabelOrientation
 }
+
+export const ORIENTATIONS: { value: LabelOrientation; label: string }[] = [
+  { value: 'auto', label: 'Auto (rotate on tall labels)' },
+  { value: 'vertical', label: 'Vertical (barcode along length)' },
+  { value: 'horizontal', label: 'Horizontal' },
+]
 
 export type PrinterLanguage = 'PPLA' | 'PPLB' | 'PPLZ'
 export type ConnectionType = 'network' | 'usb'

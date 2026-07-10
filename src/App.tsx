@@ -4,11 +4,13 @@ import {
   BARCODE_FORMATS,
   DEFAULT_PRINTER_CONFIG,
   LABEL_PRESETS,
+  ORIENTATIONS,
   PRINTER_LANGUAGES,
   newLabel,
 } from './types'
 import { Label } from './components/Label'
 import { generatePrintJob } from './printer'
+import { isVertical } from './printer/layout'
 import { fetchPrinters, sendPrintJob, type WindowsPrinter } from './printer/client'
 
 const CUSTOM_PRESET = 'custom'
@@ -40,6 +42,7 @@ export default function App() {
     heightMm: LABEL_PRESETS[0].heightMm,
     format: 'CODE128',
     displayValue: true,
+    orientation: 'auto',
   })
   const [printer, setPrinter] = usePersistentState<PrinterConfig>(
     'printer-config',
@@ -344,6 +347,30 @@ export default function App() {
             />
             <span>Print value under barcode</span>
           </label>
+          <label className="field">
+            <span>Orientation</span>
+            <select
+              value={settings.orientation}
+              onChange={(e) =>
+                setSettings((s) => ({
+                  ...s,
+                  orientation: e.target.value as LabelSettings['orientation'],
+                }))
+              }
+            >
+              {ORIENTATIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {isVertical(settings) && printer.language !== 'PPLA' && (
+            <div className="hint">
+              Vertical layout is currently applied for PPLA output only; {printer.language} prints
+              horizontally.
+            </div>
+          )}
         </aside>
 
         <main className="panel queue-panel">
@@ -418,11 +445,16 @@ export default function App() {
           {selected ? (
             <>
               <div className="preview-stage">
-                <Label item={selected} settings={settings} />
+                <Label
+                  item={selected}
+                  settings={settings}
+                  vertical={isVertical(settings) && printer.language === 'PPLA'}
+                />
               </div>
               <div className="preview-caption">
-                {settings.widthMm} × {settings.heightMm} mm — approximate; the printer renders
-                barcodes and fonts natively from the commands below.
+                {settings.widthMm} × {settings.heightMm} mm
+                {isVertical(settings) && printer.language === 'PPLA' ? ' · vertical' : ''} —
+                approximate; the printer renders barcodes and fonts natively from the commands below.
               </div>
             </>
           ) : (

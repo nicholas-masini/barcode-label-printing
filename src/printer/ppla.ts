@@ -1,5 +1,5 @@
 import type { LabelItem, LabelSettings, PrinterConfig } from '../types'
-import { computeLayout } from './layout'
+import { computeLayout, computeVerticalLayout, isVertical } from './layout'
 
 const STX = '\x02'
 const CR = '\r' // PPLA records terminate with CR (0x0D) only
@@ -51,6 +51,16 @@ export function generatePpla(
   settings: LabelSettings,
   printer: PrinterConfig,
 ): string {
+  return isVertical(settings)
+    ? generatePplaVertical(item, settings, printer)
+    : generatePplaHorizontal(item, settings, printer)
+}
+
+function generatePplaHorizontal(
+  item: LabelItem,
+  settings: LabelSettings,
+  printer: PrinterConfig,
+): string {
   const layout = computeLayout({
     item,
     settings,
@@ -95,5 +105,55 @@ export function generatePpla(
 
   lines.push(`Q${pad(item.quantity, 4)}`) // copies
   lines.push('E') // end format and print
+  return lines.join(CR) + CR
+}
+
+/**
+ * Vertical PPLA layout: the barcode is rotated 90° (rotation "2") so it runs
+ * the length of the label, with the human-readable value auto-printed on one
+ * side and the product text on the other. Rotation "2" anchors at the field's
+ * top-left corner and extends down + right. Verified on an Argox O4-250 with
+ * 40×76mm stock.
+ */
+function generatePplaVertical(
+  item: LabelItem,
+  settings: LabelSettings,
+  printer: PrinterConfig,
+): string {
+  const v = computeVerticalLayout({
+    item,
+    settings,
+    dpi: printer.dpi,
+    gapMm: printer.gapMm,
+    textCharAdvance: FONT.advance,
+    textHeight: FONT.h,
+  })
+  const toUnits = (dots: number) => (dots / printer.dpi) * 100
+
+  const lines: string[] = [`${STX}n`, `${STX}L`, 'D11']
+
+  let barcodeId = BARCODE_ID[settings.format] ?? 'E'
+  if (!settings.displayValue) barcodeId = barcodeId.toLowerCase()
+  const narrow = v.module
+  const wide = RATIO_BASED.has(settings.format) ? narrow * 3 : narrow
+  lines.push(
+    `2${barcodeId}${widthChar(wide)}${widthChar(narrow)}` +
+      pad(toUnits(v.barHeightDots), 3) +
+      pad(toUnits(v.heightDots - v.barTopDots), 4) + // row = top edge, from bottom
+      pad(toUnits(v.barLeftDots), 4) +
+      item.value,
+  )
+
+  if (v.text) {
+    lines.push(
+      `2${FONT.id}11000` +
+        pad(toUnits(v.heightDots - v.text.topDots), 4) +
+        pad(toUnits(v.text.leftDots), 4) +
+        item.text.trim(),
+    )
+  }
+
+  lines.push(`Q${pad(item.quantity, 4)}`)
+  lines.push('E')
   return lines.join(CR) + CR
 }
