@@ -24,6 +24,11 @@ export async function fetchPrinters(): Promise<WindowsPrinter[]> {
   return body.printers ?? []
 }
 
+/** Sends raw setup/calibration command bytes — same transport as a print job. */
+export async function sendCommand(printer: PrinterConfig, data: string): Promise<number> {
+  return sendPrintJob(printer, data)
+}
+
 export async function sendPrintJob(printer: PrinterConfig, data: string): Promise<number> {
   const connection =
     printer.connectionType === 'network'

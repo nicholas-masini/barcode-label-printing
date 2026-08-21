@@ -44,6 +44,10 @@ export interface PrinterConfig {
   printerName: string
   /** Gap between labels on the roll (transmissive sensing) */
   gapMm: number
+  /** Print darkness/heat 0–20 (PPLA H command). Undefined = use printer default. */
+  darkness?: number
+  /** Print-speed letter (PPLA P command). Undefined = use printer default. */
+  speed?: string
 }
 
 export const DEFAULT_PRINTER_CONFIG: PrinterConfig = {

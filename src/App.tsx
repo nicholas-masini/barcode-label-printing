@@ -9,6 +9,7 @@ import {
   newLabel,
 } from './types'
 import { Label } from './components/Label'
+import { PrinterSetup } from './components/PrinterSetup'
 import { generatePrintJob } from './printer'
 import { isVertical } from './printer/layout'
 import { fetchPrinters, sendPrintJob, type WindowsPrinter } from './printer/client'
@@ -54,6 +55,7 @@ export default function App() {
   const [status, setStatus] = useState<PrintStatus>({ state: 'idle' })
   const [windowsPrinters, setWindowsPrinters] = useState<WindowsPrinter[] | null>(null)
   const [printersError, setPrintersError] = useState<string | null>(null)
+  const [view, setView] = useState<'print' | 'setup'>('print')
 
   const selected = labels.find((l) => l.id === selectedId) ?? labels[0] ?? null
   const printable = useMemo(() => labels.filter((l) => l.value.trim()), [labels])
@@ -162,21 +164,45 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Barcode Label Printer</h1>
+        <div className="header-left">
+          <h1>Barcode Label Printer</h1>
+          <nav className="tabs">
+            <button
+              className={view === 'print' ? 'active' : ''}
+              onClick={() => setView('print')}
+            >
+              Print
+            </button>
+            <button
+              className={view === 'setup' ? 'active' : ''}
+              onClick={() => setView('setup')}
+            >
+              Printer Setup
+            </button>
+          </nav>
+        </div>
         <div className="header-actions">
-          {status.state === 'ok' && <span className="status status-ok">{status.message}</span>}
-          {status.state === 'error' && (
-            <span className="status status-error">{status.message}</span>
+          {view === 'print' && (
+            <>
+              {status.state === 'ok' && <span className="status status-ok">{status.message}</span>}
+              {status.state === 'error' && (
+                <span className="status status-error">{status.message}</span>
+              )}
+              <button className="print-button" onClick={handlePrint} disabled={!canPrint}>
+                {status.state === 'sending'
+                  ? 'Sending…'
+                  : `🖨 Print${totalCopies > 0 ? ` ${totalCopies} label${totalCopies === 1 ? '' : 's'}` : ''}`}
+              </button>
+            </>
           )}
-          <button className="print-button" onClick={handlePrint} disabled={!canPrint}>
-            {status.state === 'sending'
-              ? 'Sending…'
-              : `🖨 Print${totalCopies > 0 ? ` ${totalCopies} label${totalCopies === 1 ? '' : 's'}` : ''}`}
-          </button>
         </div>
       </header>
 
-      <div className="app-body">
+      {view === 'setup' && (
+        <PrinterSetup printer={printer} setPrinter={setPrinter} labelLengthMm={settings.heightMm} />
+      )}
+
+      <div className="app-body" style={view === 'setup' ? { display: 'none' } : undefined}>
         <aside className="panel settings-panel">
           <h2>Printer</h2>
           <label className="field">

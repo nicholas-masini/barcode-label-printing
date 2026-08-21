@@ -1,8 +1,14 @@
 import type { LabelItem, LabelSettings, PrinterConfig } from '../types'
 import { computeLayout, computeVerticalLayout, isVertical } from './layout'
+import { pplaJobSettings } from './setup'
 
 const STX = '\x02'
 const CR = '\r' // PPLA records terminate with CR (0x0D) only
+
+/** Job preamble: inch mode, enter label mode, dot size, then optional heat/speed. */
+function preamble(printer: PrinterConfig): string[] {
+  return [`${STX}n`, `${STX}L`, 'D11', ...pplaJobSettings(printer)]
+}
 
 /**
  * JsBarcode format → PPLA barcode ID, per the Argox PPLA Programmer's Manual
@@ -77,10 +83,7 @@ function generatePplaHorizontal(
   const rowFromTop = (yTopDots: number, elementHeightDots: number) =>
     toUnits(layout.heightDots - yTopDots - elementHeightDots)
 
-  const lines: string[] = []
-  lines.push(`${STX}n`) // inch mode (matches unit math above)
-  lines.push(`${STX}L`) // enter label-formatting mode
-  lines.push('D11') // 1×1 dot size
+  const lines: string[] = preamble(printer)
 
   if (layout.text) {
     lines.push(
@@ -130,7 +133,7 @@ function generatePplaVertical(
   })
   const toUnits = (dots: number) => (dots / printer.dpi) * 100
 
-  const lines: string[] = [`${STX}n`, `${STX}L`, 'D11']
+  const lines: string[] = preamble(printer)
 
   let barcodeId = BARCODE_ID[settings.format] ?? 'E'
   if (!settings.displayValue) barcodeId = barcodeId.toLowerCase()

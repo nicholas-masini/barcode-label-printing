@@ -105,29 +105,46 @@ export function computeVerticalLayout(opts: VerticalLayoutOptions): VerticalLayo
   const widthDots = mmToDots(settings.widthMm, dpi)
   const heightDots = mmToDots(settings.heightMm, dpi)
   const endMargin = mmToDots(6, dpi)
+  const sideMargin = mmToDots(1.5, dpi)
+  const label = item.text.trim()
+  const hasText = label.length > 0
 
-  // Bars span across the width; leave room either side for the value + text.
-  const barHeightDots = clamp(Math.round(widthDots * 0.5), mmToDots(12, dpi), mmToDots(24, dpi))
+  // Bars span across the width; reserve room on the right for the product text
+  // (and on the left for the value), and never let the bars exceed the width.
+  const textReserve = hasText ? opts.textHeight + mmToDots(2, dpi) : 0
+  const maxBars = Math.max(mmToDots(5, dpi), widthDots - 2 * sideMargin - textReserve)
+  const barHeightDots = clamp(
+    Math.round(widthDots * 0.45),
+    mmToDots(5, dpi),
+    Math.min(mmToDots(24, dpi), maxBars),
+  )
 
-  // Encoded length runs along the longer (height) axis — more room, thicker bars.
-  const availLen = Math.max(mmToDots(10, dpi), heightDots - 2 * endMargin)
+  // Encoded length runs along the height axis. Pick the widest module that fits
+  // the margined length, but the printer draws modules*module downward from the
+  // top anchor — so barLenDots (and centering) MUST use that actual length, or
+  // long values / short stock run off the bottom edge.
+  const availLen = heightDots - 2 * endMargin
   const modules = estimateModules(settings.format, item.value)
   const module = clamp(Math.floor(availLen / modules), 1, 5)
-  const barLenDots = Math.min(availLen, modules * module)
+  const barLenDots = modules * module
 
-  const barLeftDots = Math.round((widthDots - barHeightDots) / 2)
-  const barTopDots = Math.round((heightDots - barLenDots) / 2)
+  const barLeftDots = Math.max(sideMargin, Math.round((widthDots - barHeightDots) / 2))
+  const barTopDots = clamp(Math.round((heightDots - barLenDots) / 2), 0, heightDots)
 
-  const label = item.text.trim()
-  const text =
-    label.length > 0
-      ? {
-          leftDots: Math.round(barLeftDots + barHeightDots + mmToDots(2, dpi)),
-          topDots: Math.round(
-            (heightDots - Math.min(availLen, label.length * opts.textCharAdvance)) / 2,
-          ),
-        }
-      : null
+  const text = hasText
+    ? {
+        // Clamp within the label width so the text never anchors off the edge.
+        leftDots: Math.min(
+          barLeftDots + barHeightDots + mmToDots(2, dpi),
+          widthDots - opts.textHeight - sideMargin,
+        ),
+        topDots: clamp(
+          Math.round((heightDots - label.length * opts.textCharAdvance) / 2),
+          0,
+          heightDots,
+        ),
+      }
+    : null
 
   return {
     widthDots,
@@ -158,13 +175,11 @@ export function computeLayout(opts: LayoutOptions): ComputedLayout {
   const module = Math.min(4, Math.max(1, Math.floor(availWidth / modules)))
   const barcodeWidth = modules * module
 
-  // A readable barcode height: ~40% of the label, clamped so it neither
-  // disappears on short stock nor stretches the full length of a long label.
-  const barcodeHeight = clamp(
-    Math.round(heightDots * 0.4),
-    mmToDots(8, dpi),
-    mmToDots(25, dpi),
-  )
+  // Barcode fills the space left after the text + value, capped so it doesn't
+  // stretch the full length of a tall label. Bounded by the room actually
+  // available so the stacked block never overflows the label bottom.
+  const room = Math.max(1, heightDots - 2 * margin - textBlock - hrBlock)
+  const barcodeHeight = Math.min(room, mmToDots(40, dpi))
 
   // Stack [text?] + [barcode] + [human-readable?] as one block and center it
   // vertically, so there is even whitespace above and below.
